@@ -26,6 +26,7 @@ import com.sun.tools.javac.tree.JCTree;
 
 import cyh.ast.annotation.DynamicField;
 import cyh.ast.modifier.ASTModifier;
+import cyh.ast.modifier.ConstructorGenerator;
 
 @AutoService(Processor.class)
 @SupportedAnnotationTypes("cyh.ast.annotation.DynamicField")
@@ -33,6 +34,7 @@ import cyh.ast.modifier.ASTModifier;
 public class DynamicFieldProcessor extends AbstractProcessor {
 
 	private ASTModifier astModifier;
+	private ConstructorGenerator constructorGenerator;
 	private Elements elementUtils;
 	private Types typeUtils;
 
@@ -42,7 +44,8 @@ public class DynamicFieldProcessor extends AbstractProcessor {
 		super.init(processingEnv);
 		this.elementUtils = processingEnv.getElementUtils();
 		this.typeUtils = processingEnv.getTypeUtils();
-		this.astModifier = new ASTModifier(processingEnv, typeUtils, elementUtils);
+		this.astModifier = new ASTModifier(processingEnv);
+		this.constructorGenerator = new ConstructorGenerator(typeUtils, astModifier);
 	}
 
 	@Override
@@ -96,7 +99,7 @@ public class DynamicFieldProcessor extends AbstractProcessor {
 						continue;
 					}
 
-					JCTree.JCMethodDecl newConstructor = astModifier.generateConstructor(constructor, interfaceType);
+					JCTree.JCMethodDecl newConstructor = constructorGenerator.generate(constructor, interfaceType);
 					processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
 					  "setClassDefModifyStrategy() - " + newConstructor);
 					jcClassDecl.defs = jcClassDecl.defs.append(newConstructor);

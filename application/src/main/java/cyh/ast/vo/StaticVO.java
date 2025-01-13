@@ -11,4 +11,6 @@ public class StaticVO {
 		this.staticField = staticField;
 	}
 
+	public StaticVO(int i, String s) {}
+
 }
