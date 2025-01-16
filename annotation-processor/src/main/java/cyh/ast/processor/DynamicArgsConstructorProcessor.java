@@ -24,14 +24,14 @@ import javax.tools.Diagnostic;
 import com.google.auto.service.AutoService;
 import com.sun.tools.javac.tree.JCTree;
 
-import cyh.ast.annotation.DynamicField;
+import cyh.ast.annotation.DynamicArgsConstructor;
 import cyh.ast.modifier.ASTModifier;
 import cyh.ast.modifier.ConstructorGenerator;
 
 @AutoService(Processor.class)
-@SupportedAnnotationTypes("cyh.ast.annotation.DynamicField")
+@SupportedAnnotationTypes("cyh.ast.annotation.DynamicArgsConstructor")
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
-public class DynamicFieldProcessor extends AbstractProcessor {
+public class DynamicArgsConstructorProcessor extends AbstractProcessor {
 
 	private ASTModifier astModifier;
 	private ConstructorGenerator constructorGenerator;
@@ -51,7 +51,7 @@ public class DynamicFieldProcessor extends AbstractProcessor {
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 		processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "DynamicFieldProcessor process()");
-		for (Element element : roundEnv.getElementsAnnotatedWith(DynamicField.class)) {
+		for (Element element : roundEnv.getElementsAnnotatedWith(DynamicArgsConstructor.class)) {
 			if (element.getKind() != ElementKind.CLASS) {
 				continue;
 			}
@@ -61,10 +61,11 @@ public class DynamicFieldProcessor extends AbstractProcessor {
 			// 1. super class 여부 not Object
 			TypeMirror superclass = classElement.getSuperclass();
 			if (superclass.toString().equals(Object.class.getCanonicalName())) {
-				processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "Class has no superclass other than Object.", classElement);
-				// todo
-				//  processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "");
-				//  throw
+				processingEnv.getMessager().printMessage(
+				  Diagnostic.Kind.WARNING,
+				  String.format("DynamicArgsConstructor Generate Fail, because %s has not SuperClass.", classElement.getSimpleName()),
+				  classElement
+				);
 				continue;
 			}
 
@@ -74,9 +75,11 @@ public class DynamicFieldProcessor extends AbstractProcessor {
 			  .filter(typeMirror -> typeUtils.asElement(typeMirror).equals(dynamicValueProcessorElement))
 			  .findAny();
 			if (!iDynamicValueProcessor.isPresent()) {
-				// todo
-				//  processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "");
-				//  throw
+				processingEnv.getMessager().printMessage(
+				  Diagnostic.Kind.WARNING,
+				  String.format("DynamicArgsConstructor Generate Fail, because %s has not implement DynamicValueProcessor.", classElement.getSimpleName()),
+				  classElement
+				);
 				continue;
 			}
 
@@ -91,7 +94,7 @@ public class DynamicFieldProcessor extends AbstractProcessor {
 		return true;
 	}
 
-	private void doProcess(TypeElement classElement, List<ExecutableElement> constructors, TypeMirror interfaceType) {
+	private void doProcess(TypeElement element, List<ExecutableElement> constructors, TypeMirror interfaceType) {
 		try {
 			astModifier.setClassDefModifyStrategy(jcClassDecl -> {
 				for (ExecutableElement constructor : constructors) {
@@ -99,17 +102,20 @@ public class DynamicFieldProcessor extends AbstractProcessor {
 						continue;
 					}
 
-					JCTree.JCMethodDecl newConstructor = constructorGenerator.generate(constructor, interfaceType);
-					processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-					  "setClassDefModifyStrategy() - " + newConstructor);
-					jcClassDecl.defs = jcClassDecl.defs.append(newConstructor);
+					JCTree.JCMethodDecl copyConstructor = constructorGenerator.copy(constructor);
+					JCTree.JCMethodDecl dynamicConstructor = constructorGenerator.executeDynamicProcessor(copyConstructor, interfaceType);
+					jcClassDecl.defs = jcClassDecl.defs.append(copyConstructor).append(dynamicConstructor);
 				}
 			});
 
-			astModifier.modifyTree(classElement);
+			astModifier.modifyTree(element);
+			processingEnv.getMessager().printMessage(
+			  Diagnostic.Kind.NOTE,
+			  String.format("Generated %s DynamicArgsConstructors to %s", constructors.size(), element.getSimpleName()),
+			  element
+			);
 		} catch (Exception e) {
-			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-			  "Error modifying class: " + e.getMessage());
+			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Error modifying class: " + e.getMessage());
 		}
 	}
 

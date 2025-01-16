@@ -32,7 +32,7 @@ public class ASTModifier {
 		try {
 			trees = Trees.instance(processingEnvironment);
 		} catch (IllegalArgumentException exception) {
-			processingEnvironment.getMessager().printMessage(Diagnostic.Kind.WARNING, "IllegalArgumentException!!! -> do unwrap");
+			processingEnvironment.getMessager().printMessage(Diagnostic.Kind.WARNING, "IllegalArgumentException on Intellij !!! -> do unwrap");
 			processingEnvironment = jbUnwrap(ProcessingEnvironment.class, processingEnvironment);
 			trees = Trees.instance(processingEnvironment);
 		}
@@ -77,23 +77,18 @@ public class ASTModifier {
 
 	public void modifyTree(Element element) {
 		TreePath path = trees.getPath(element);
-
-		if (path == null) {
-			throw new IllegalArgumentException("No TreePath found for the given element.");
-		}
 		scanner.scan(path, path.getCompilationUnit());
-	}
-
-	public Trees getTrees() {
-		return trees;
-	}
-
-	public TreeMaker getTreeMaker() {
-		return treeMaker;
 	}
 
 	public Names getNames() {
 		return names;
 	}
 
+	public TreeMaker getTreeMaker() {
+		return treeMaker;
+	}
+
+	public Trees getTrees() {
+		return trees;
+	}
 }

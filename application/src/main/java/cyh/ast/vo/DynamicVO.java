@@ -5,10 +5,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import cyh.ast.annotation.DynamicField;
-import cyh.ast.processor.DynamicFieldProcessor.DynamicValueProcessor;
+import cyh.ast.annotation.DynamicArgsConstructor;
+import cyh.ast.processor.DynamicArgsConstructorProcessor.DynamicValueProcessor;
 
-@DynamicField
+@DynamicArgsConstructor
 public class DynamicVO extends StaticVO implements DynamicValueProcessor<DynamicValue> {
 
 	private List<String> dynamicFieldValues;
@@ -26,9 +26,4 @@ public class DynamicVO extends StaticVO implements DynamicValueProcessor<Dynamic
 		  })
 		  .collect(Collectors.toList());
 	}
-
-	// public DynamicVO(String s, int i, DynamicValue[] values) {
-	// 	super(s, i);
-	// 	process(values);
-	// }
 }
