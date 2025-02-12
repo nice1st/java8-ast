@@ -29,8 +29,8 @@ public class ConstructorGenerator {
 	}
 
 	public JCTree.JCMethodDecl copy(ExecutableElement superConstructor) {
-		List<JCTree.JCVariableDecl> params = getParams(superConstructor);
-		JCTree.JCExpressionStatement superCall = getSuperCall(params);
+		List<JCTree.JCVariableDecl> params = genParams(superConstructor);
+		JCTree.JCExpressionStatement superCall = genSuperCall(params);
 
 		JCTree.JCBlock body = treeMaker.Block(0, List.of(superCall));
 
@@ -46,15 +46,44 @@ public class ConstructorGenerator {
 		);
 	}
 
-	public JCTree.JCMethodDecl executeDynamicProcessor(JCTree.JCMethodDecl superConstructor, TypeMirror interfaceType) {
-		// get 인터페이스 제너릭 파라메터
+	private List<JCTree.JCVariableDecl> genParams(ExecutableElement constructor) {
+		JCTree.JCMethodDecl methodDecl = (JCTree.JCMethodDecl) trees.getTree(constructor);
+
+		List<JCTree.JCVariableDecl> params = List.nil();
+		for (JCTree.JCVariableDecl param : methodDecl.getParameters()) {
+			params = params.append(treeMaker.Param(
+			  param.getName(),
+			  param.sym.type,
+			  null
+			));
+		}
+		return params;
+	}
+
+	private JCTree.JCExpressionStatement genSuperCall(List<JCTree.JCVariableDecl> params) {
+		List<JCTree.JCExpression> args = List.nil();
+		for (JCTree.JCVariableDecl param : params) {
+			args = args.append(treeMaker.Ident(param.name));
+		}
+
+		return treeMaker.Exec( // 실행
+		  treeMaker.Apply( // 메소드
+			List.nil(), // 제네릭 파라미터
+			treeMaker.Ident(names.fromString("super")), // 이름
+			args // 인자
+		  )
+		);
+	}
+
+	public JCTree.JCMethodDecl dynamic(JCTree.JCMethodDecl superConstructor, TypeMirror interfaceType) {
+		// 인터페이스 제너릭 파라메터: DynamicValue
 		TypeMirror valueType = ((DeclaredType) interfaceType).getTypeArguments().get(0);
-		// 배열 타입
+		// 배열 타입: DynamicValue[]
 		TypeMirror arrayValueType = typeUtils.getArrayType(valueType);
-		// DynamicValue[]
+		// Variable: DynamicValue[] _values
 		JCTree.JCVariableDecl newParam = treeMaker.Param(names.fromString("_values"), (Type) arrayValueType, null);
 		// process(_values);
-		JCTree.JCExpressionStatement processCall = getProcessCall(newParam);
+		JCTree.JCExpressionStatement processCall = genProcessCall(newParam);
 
 		/*
 		생성자
@@ -75,36 +104,11 @@ public class ConstructorGenerator {
 		);
 	}
 
-	private List<JCTree.JCVariableDecl> getParams(ExecutableElement constructor) {
-		JCTree.JCMethodDecl methodDecl = (JCTree.JCMethodDecl) trees.getTree(constructor);
-
-		List<JCTree.JCVariableDecl> params = List.nil();
-		for (JCTree.JCVariableDecl param : methodDecl.getParameters()) {
-			params = params.append(treeMaker.Param(param.getName(), param.sym.type, null));
-		}
-		return params;
-	}
-
-	private JCTree.JCExpressionStatement getSuperCall(List<JCTree.JCVariableDecl> params) {
-		List<JCTree.JCExpression> args = List.nil();
-		for (JCTree.JCVariableDecl param : params) {
-			args = args.append(treeMaker.Ident(param.name));
-		}
-
-		return treeMaker.Exec( // 실행
-		  treeMaker.Apply( // 메소드
-			List.nil(), // 제네릭 파라미터
-			treeMaker.Ident(names.fromString("super")), // 이름
-			args // 인자
-		  )
-		);
-	}
-
-	private JCTree.JCExpressionStatement getProcessCall(JCTree.JCVariableDecl newParam) {
+	private JCTree.JCExpressionStatement genProcessCall(JCTree.JCVariableDecl newParam) {
 		return treeMaker.Exec(
 		  treeMaker.Apply(
 			List.nil(),
-			treeMaker.Ident(names.fromString("process")),
+			treeMaker.Ident(names.fromString("process")), // todo interface defs name
 			List.of(treeMaker.Ident(newParam.name))
 		  )
 		);

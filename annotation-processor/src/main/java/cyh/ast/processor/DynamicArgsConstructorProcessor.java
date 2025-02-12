@@ -34,36 +34,36 @@ import cyh.ast.modifier.ConstructorGenerator;
 public class DynamicArgsConstructorProcessor extends AbstractProcessor {
 
 	private ASTModifier astModifier;
-	private ConstructorGenerator constructorGenerator;
 	private Elements elementUtils;
 	private Types typeUtils;
 
 	@Override
 	public synchronized void init(ProcessingEnvironment processingEnv) {
-		processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "DynamicFieldProcessor init()");
+		processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "DynamicArgsConstructorProcessor init()");
 		super.init(processingEnv);
 		this.elementUtils = processingEnv.getElementUtils();
 		this.typeUtils = processingEnv.getTypeUtils();
 		this.astModifier = new ASTModifier(processingEnv);
-		this.constructorGenerator = new ConstructorGenerator(typeUtils, astModifier);
 	}
 
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "DynamicFieldProcessor process()");
+		processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "DynamicArgsConstructorProcessor process()");
 		for (Element element : roundEnv.getElementsAnnotatedWith(DynamicArgsConstructor.class)) {
 			if (element.getKind() != ElementKind.CLASS) {
 				continue;
 			}
 
 			TypeElement classElement = (TypeElement) element;
+			processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating DynamicArgsConstructor", element);
 
 			// 1. super class 여부 not Object
 			TypeMirror superclass = classElement.getSuperclass();
 			if (superclass.toString().equals(Object.class.getCanonicalName())) {
 				processingEnv.getMessager().printMessage(
 				  Diagnostic.Kind.WARNING,
-				  String.format("DynamicArgsConstructor Generate Fail, because %s has not SuperClass.", classElement.getSimpleName()),
+				  String.format("DynamicArgsConstructor Generate Fail, because %s has not SuperClass.",
+					classElement.getSimpleName()),
 				  classElement
 				);
 				continue;
@@ -77,7 +77,8 @@ public class DynamicArgsConstructorProcessor extends AbstractProcessor {
 			if (!iDynamicValueProcessor.isPresent()) {
 				processingEnv.getMessager().printMessage(
 				  Diagnostic.Kind.WARNING,
-				  String.format("DynamicArgsConstructor Generate Fail, because %s has not implement DynamicValueProcessor.", classElement.getSimpleName()),
+				  String.format("DynamicArgsConstructor Generate Fail, because %s has not implement DynamicValueProcessor.",
+					classElement.getSimpleName()),
 				  classElement
 				);
 				continue;
@@ -88,35 +89,36 @@ public class DynamicArgsConstructorProcessor extends AbstractProcessor {
 			List<ExecutableElement> constructors = ElementFilter.constructorsIn(superClassElement.getEnclosedElements());
 
 			// 4. constructor(..., value[] values) 생성 추가
-			doProcess(classElement, constructors, iDynamicValueProcessor.get());
+			doProcess(constructors, iDynamicValueProcessor.get());
+
+			astModifier.modifyTree(classElement);
+			processingEnv.getMessager().printMessage(
+			  Diagnostic.Kind.NOTE,
+			  String.format("Generated %s DynamicArgsConstructors to %s", constructors.size(), classElement.getSimpleName()),
+			  classElement
+			);
 		}
 
 		return true;
 	}
 
-	private void doProcess(TypeElement element, List<ExecutableElement> constructors, TypeMirror interfaceType) {
-		try {
-			astModifier.setClassDefModifyStrategy(jcClassDecl -> {
-				for (ExecutableElement constructor : constructors) {
-					if (constructor.getParameters().isEmpty()) {
-						continue;
-					}
-
-					JCTree.JCMethodDecl copyConstructor = constructorGenerator.copy(constructor);
-					JCTree.JCMethodDecl dynamicConstructor = constructorGenerator.executeDynamicProcessor(copyConstructor, interfaceType);
-					jcClassDecl.defs = jcClassDecl.defs.append(copyConstructor).append(dynamicConstructor);
+	private void doProcess(List<ExecutableElement> constructors, TypeMirror interfaceType) {
+		astModifier.setClassDefModifyStrategy((jcClassDecl, endPosTable) -> {
+			for (ExecutableElement constructor : constructors) {
+				if (constructor.getParameters().isEmpty()) {
+					continue;
 				}
-			});
 
-			astModifier.modifyTree(element);
-			processingEnv.getMessager().printMessage(
-			  Diagnostic.Kind.NOTE,
-			  String.format("Generated %s DynamicArgsConstructors to %s", constructors.size(), element.getSimpleName()),
-			  element
-			);
-		} catch (Exception e) {
-			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Error modifying class: " + e.getMessage());
-		}
+				int pos = jcClassDecl.getEndPosition(endPosTable);
+				astModifier.getTreeMaker().at(pos);
+
+				ConstructorGenerator constructorGenerator = new ConstructorGenerator(typeUtils, astModifier);
+				JCTree.JCMethodDecl copyConstructor = constructorGenerator.copy(constructor);
+				JCTree.JCMethodDecl dynamicConstructor = constructorGenerator.dynamic(copyConstructor, interfaceType);
+
+				jcClassDecl.defs = jcClassDecl.defs.append(copyConstructor).append(dynamicConstructor);
+			}
+		});
 	}
 
 	public interface DynamicValueProcessor<T> {

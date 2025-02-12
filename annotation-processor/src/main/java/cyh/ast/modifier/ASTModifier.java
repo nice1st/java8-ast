@@ -1,7 +1,7 @@
 package cyh.ast.modifier;
 
 import java.lang.reflect.Method;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -14,16 +14,22 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Names;
 
+import lombok.Getter;
+
 public class ASTModifier {
 
+	@Getter
 	private final Trees trees;
+	@Getter
 	private final TreeMaker treeMaker;
+	@Getter
 	private final Names names;
 	private TreePathScanner<Object, CompilationUnitTree> scanner;
 
@@ -32,7 +38,8 @@ public class ASTModifier {
 		try {
 			trees = Trees.instance(processingEnvironment);
 		} catch (IllegalArgumentException exception) {
-			processingEnvironment.getMessager().printMessage(Diagnostic.Kind.WARNING, "IllegalArgumentException on Intellij !!! -> do unwrap");
+			processingEnvironment.getMessager().printMessage(
+			  Diagnostic.Kind.WARNING, "IllegalArgumentException on Intellij !!! -> do unwrap");
 			processingEnvironment = jbUnwrap(ProcessingEnvironment.class, processingEnvironment);
 			trees = Trees.instance(processingEnvironment);
 		}
@@ -55,17 +62,18 @@ public class ASTModifier {
 		return unwrapped != null ? unwrapped : wrapper;
 	}
 
-	public void setClassDefModifyStrategy(Consumer<JCTree.JCClassDecl> strategy) {
+	public void setClassDefModifyStrategy(BiConsumer<JCTree.JCClassDecl, EndPosTable> strategy) {
 		this.scanner = new TreePathScanner<Object, CompilationUnitTree>() {
 			@Override
 			public Trees visitClass(ClassTree node, CompilationUnitTree compilationUnitTree) {
 				JCTree.JCCompilationUnit compilationUnit = (JCTree.JCCompilationUnit) compilationUnitTree;
+				EndPosTable endPosTable = compilationUnit.endPositions;
 				if (compilationUnit.sourcefile.getKind() == JavaFileObject.Kind.SOURCE) {
 					compilationUnit.accept(new TreeTranslator() {
 						@Override
 						public void visitClassDef(JCTree.JCClassDecl jcClassDecl) {
 							super.visitClassDef(jcClassDecl);
-							strategy.accept(jcClassDecl);
+							strategy.accept(jcClassDecl, endPosTable);
 						}
 					});
 				}
@@ -80,15 +88,4 @@ public class ASTModifier {
 		scanner.scan(path, path.getCompilationUnit());
 	}
 
-	public Names getNames() {
-		return names;
-	}
-
-	public TreeMaker getTreeMaker() {
-		return treeMaker;
-	}
-
-	public Trees getTrees() {
-		return trees;
-	}
 }
