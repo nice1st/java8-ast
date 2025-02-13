@@ -82,6 +82,8 @@ public class ConstructorGenerator {
 		TypeMirror arrayValueType = typeUtils.getArrayType(valueType);
 		// Variable: DynamicValue[] _values
 		JCTree.JCVariableDecl newParam = treeMaker.Param(names.fromString("_values"), (Type) arrayValueType, null);
+		// DynamicValue[] -> DynamicValue...
+		newParam.mods = treeMaker.Modifiers(Flags.PARAMETER | Flags.VARARGS);
 		// process(_values);
 		JCTree.JCExpressionStatement processCall = genProcessCall(newParam);
 
