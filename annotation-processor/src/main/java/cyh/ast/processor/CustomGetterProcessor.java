@@ -1,6 +1,7 @@
 package cyh.ast.processor;
 
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -15,6 +16,7 @@ import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
 import com.google.auto.service.AutoService;
+import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.List;
 
@@ -34,7 +36,7 @@ public class CustomGetterProcessor extends AbstractProcessor {
 		processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "CustomGetterProcessor init()");
 		super.init(processingEnv);
 		this.astModifier = new ASTModifier(processingEnv);
-		doProcess();
+		astModifier.setClassDefModifyStrategy(getStrategy());
 	}
 
 	@Override
@@ -52,8 +54,8 @@ public class CustomGetterProcessor extends AbstractProcessor {
 		return true;
 	}
 
-	private void doProcess() {
-		astModifier.setClassDefModifyStrategy((jcClassDecl, endPosTable) -> {
+	private BiConsumer<JCTree.JCClassDecl, EndPosTable> getStrategy() {
+		return (jcClassDecl, endPosTable) -> {
 			int pos = jcClassDecl.getEndPosition(endPosTable);
 			astModifier.getTreeMaker().at(pos);
 
@@ -65,7 +67,7 @@ public class CustomGetterProcessor extends AbstractProcessor {
 					jcClassDecl.defs = jcClassDecl.defs.prepend(getter);
 				}
 			}
-		});
+		};
 	}
 
 }

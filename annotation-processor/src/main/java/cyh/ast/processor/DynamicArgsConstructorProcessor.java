@@ -3,6 +3,7 @@ package cyh.ast.processor;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -22,6 +23,7 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 import com.google.auto.service.AutoService;
+import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
 
 import cyh.ast.annotation.DynamicArgsConstructor;
@@ -89,7 +91,8 @@ public class DynamicArgsConstructorProcessor extends AbstractProcessor {
 			List<ExecutableElement> constructors = ElementFilter.constructorsIn(superClassElement.getEnclosedElements());
 
 			// 4. constructor(..., value[] values) 생성 추가
-			doProcess(constructors, iDynamicValueProcessor.get());
+			BiConsumer<JCTree.JCClassDecl, EndPosTable> strategy = getStrategy(constructors, iDynamicValueProcessor.get());
+			astModifier.setClassDefModifyStrategy(strategy);
 
 			astModifier.modifyTree(classElement);
 			processingEnv.getMessager().printMessage(
@@ -102,8 +105,8 @@ public class DynamicArgsConstructorProcessor extends AbstractProcessor {
 		return true;
 	}
 
-	private void doProcess(List<ExecutableElement> constructors, TypeMirror interfaceType) {
-		astModifier.setClassDefModifyStrategy((jcClassDecl, endPosTable) -> {
+	private BiConsumer<JCTree.JCClassDecl, EndPosTable> getStrategy(List<ExecutableElement> constructors, TypeMirror interfaceType) {
+		return (jcClassDecl, endPosTable) -> {
 			for (ExecutableElement constructor : constructors) {
 				if (constructor.getParameters().isEmpty()) {
 					continue;
@@ -118,7 +121,7 @@ public class DynamicArgsConstructorProcessor extends AbstractProcessor {
 
 				jcClassDecl.defs = jcClassDecl.defs.append(copyConstructor).append(dynamicConstructor);
 			}
-		});
+		};
 	}
 
 	public interface DynamicValueProcessor<T> {
