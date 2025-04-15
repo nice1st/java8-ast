@@ -34,6 +34,7 @@ public class CustomGetterProcessor extends AbstractProcessor {
 		processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "CustomGetterProcessor init()");
 		super.init(processingEnv);
 		this.astModifier = new ASTModifier(processingEnv);
+		doProcess();
 	}
 
 	@Override
@@ -45,7 +46,6 @@ public class CustomGetterProcessor extends AbstractProcessor {
 			}
 
 			TypeElement classElement = (TypeElement) element;
-			doProcess();
 			astModifier.modifyTree(classElement);
 		}
 
